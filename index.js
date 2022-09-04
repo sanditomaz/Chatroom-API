@@ -65,7 +65,12 @@ app.post("/participants", async (req, res) => {
 app.get("/participants", async (req, res) => {
   try {
     const participants = await db.collection("participants").find().toArray();
-    res.send(participants);
+    res.send(
+      participants.map((value) => ({
+        ...value,
+        _id: undefined,
+      }))
+    );
   } catch (error) {
     res.sendStatus(500);
   }
