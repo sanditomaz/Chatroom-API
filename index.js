@@ -21,6 +21,12 @@ const participantSchema = joi.object({
   name: joi.string().trim().min(1).required(),
 });
 
+const messageSchema = joi.object({
+  to: joi.string().trim().min(1).required(),
+  text: joi.string().trim().min(1).required(),
+  type: joi.valid("message", "private_message").required(),
+});
+
 app.post("/participants", async (req, res) => {
   const { name } = req.body;
 
@@ -72,6 +78,43 @@ app.get("/participants", async (req, res) => {
       }))
     );
   } catch (error) {
+    res.sendStatus(500);
+  }
+});
+
+app.post("/messages", async (req, res) => {
+  const user = req.headers.user;
+
+  const validation = messageSchema.validate(req.body, {
+    abortEarly: false,
+  });
+
+  if (validation.error) {
+    const errors = validation.error.details.map((detail) => detail.message);
+    res.status(422).send(errors);
+    return;
+  }
+
+  try {
+    const participant = await db.collection("participants").find().toArray();
+    const validUser = participant.find((item) => item.name === user);
+
+    if (!validUser) {
+      res.sendStatus(422);
+      return;
+    }
+    console.log(validUser);
+
+    await db.collection("messages").insertOne({
+      from: validUser.name,
+      to: req.body.to,
+      text: req.body.text,
+      type: req.body.type,
+      time: dayjs().format("HH:MM:ss"),
+    });
+
+    res.sendStatus(201);
+  } catch {
     res.sendStatus(500);
   }
 });
