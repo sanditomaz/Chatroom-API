@@ -30,9 +30,12 @@ const messageSchema = joi.object({
 app.post("/participants", async (req, res) => {
   const { name } = req.body;
 
-  const validation = participantSchema.validate(req.body, {
-    abortEarly: false,
-  });
+  const validation = participantSchema.validate(
+    { name },
+    {
+      abortEarly: false,
+    }
+  );
 
   if (validation.error) {
     const errors = validation.error.details.map((detail) => detail.message);
@@ -103,7 +106,6 @@ app.post("/messages", async (req, res) => {
       res.sendStatus(422);
       return;
     }
-    console.log(validUser);
 
     await db.collection("messages").insertOne({
       from: validUser.name,
@@ -138,7 +140,7 @@ app.get("/messages", async (req, res) => {
       }
     });
 
-    res.send(validToSend.filter((i, index) => (limit ? index < limit : i)));
+    res.send(validToSend.splice(-limit));
   } catch {
     res.sendStatus(500);
   }
@@ -163,26 +165,35 @@ app.post("/status", async (req, res) => {
       { $set: { lastStatus: Date.now() } }
     );
 
-    setInterval(() => {
-      participant.filter((item) => {
-        if (item.lastStatus / 1000 > 10000) {
-
-        await db.collection("participants").deleteOne({lastStatus: item.lastStatus,});
-        await db.collection("message").insertOne({
-          from: item.name,
-          to: "Todos",
-          text: "sai na sala...",
-          type: "status",
-          time: dayjs().format("HH:MM:ss"),
-        })
-      }});
-      
-    }, 15000);
-
     res.sendStatus(200);
   } catch {
     res.sendStatus(500);
   }
 });
+
+(function checkActiveUsers() {
+  setInterval(async () => {
+    const participant = await db.collection("participants").find().toArray();
+    const inactiveUser = participant.filter(
+      (item) => Date.now() - Number(item.lastStatus) > 10000
+    );
+
+    inactiveUser.forEach(async (value) => {
+      try {
+        const currentStatus = {
+          from: value.name,
+          to: "Todos",
+          text: "sai da sala...",
+          type: "status",
+          time: dayjs().format("HH:MM:ss"),
+        };
+        await db.collection("participants").deleteOne(value);
+        await db.collection("messages").insertOne(currentStatus);
+      } catch (error) {
+        console.log(error);
+      }
+    });
+  }, 15000);
+})();
 
 app.listen(5000, () => console.log("Listening on port 5000"));
