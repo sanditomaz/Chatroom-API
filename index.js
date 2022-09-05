@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { MongoClient, ObjectId } from "mongodb";
+import { MongoClient } from "mongodb";
 import joi from "joi";
 import dayjs from "dayjs";
 import dotenv from "dotenv";
@@ -144,7 +144,7 @@ app.get("/messages", async (req, res) => {
   }
 });
 
-app.put("/status", async (req, res) => {
+app.post("/status", async (req, res) => {
   const user = req.headers.user;
 
   try {
@@ -162,6 +162,22 @@ app.put("/status", async (req, res) => {
       },
       { $set: { lastStatus: Date.now() } }
     );
+
+    setInterval(() => {
+      participant.filter((item) => {
+        if (item.lastStatus / 1000 > 10000) {
+
+        await db.collection("participants").deleteOne({lastStatus: item.lastStatus,});
+        await db.collection("message").insertOne({
+          from: item.name,
+          to: "Todos",
+          text: "sai na sala...",
+          type: "status",
+          time: dayjs().format("HH:MM:ss"),
+        })
+      }});
+      
+    }, 15000);
 
     res.sendStatus(200);
   } catch {
