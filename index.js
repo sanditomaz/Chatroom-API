@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import joi from "joi";
 import dayjs from "dayjs";
 import dotenv from "dotenv";
@@ -139,6 +139,31 @@ app.get("/messages", async (req, res) => {
     });
 
     res.send(validToSend.filter((i, index) => (limit ? index < limit : i)));
+  } catch {
+    res.sendStatus(500);
+  }
+});
+
+app.put("/status", async (req, res) => {
+  const user = req.headers.user;
+
+  try {
+    const participant = await db.collection("participants").find().toArray();
+    const validUser = participant.find((item) => item.name === user);
+
+    if (!validUser) {
+      res.sendStatus(404);
+      return;
+    }
+
+    await db.collection("participants").updateOne(
+      {
+        lastStatus: validUser.lastStatus,
+      },
+      { $set: { lastStatus: Date.now() } }
+    );
+
+    res.sendStatus(200);
   } catch {
     res.sendStatus(500);
   }
